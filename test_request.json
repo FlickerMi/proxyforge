@@ -1,0 +1,4 @@
+{
+  "url": "https://httpbin.org/ip",
+  "method": "GET"
+}

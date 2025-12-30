@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  proxyforge:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: proxyforge
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # 服务配置
+      - HOST=0.0.0.0
+      - PORT=8000
+      - DEBUG=False
+      
+      # 代理池配置
+      - PROXY_POOL_SIZE=100
+      - PROXY_UPDATE_INTERVAL=3600
+      - PROXY_VALIDATION_TIMEOUT=10
+      - PROXY_VALIDATION_URL=https://httpbin.org/ip
+      
+      # 请求配置
+      - REQUEST_TIMEOUT=30
+      - REQUEST_MAX_RETRIES=3
+      
+      # 日志配置
+      - LOG_LEVEL=INFO
+      - LOG_FILE=logs/proxyforge.log
+    volumes:
+      # 持久化日志
+      - ./logs:/app/logs
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/health', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - proxyforge-network
+
+networks:
+  proxyforge-network:
+    driver: bridge
