@@ -2,9 +2,14 @@ version: '3.8'
 
 services:
   proxyforge:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    # 方法 1: 使用预构建镜像 (推荐,更快)
+    image: flickermi/proxyforge:latest
+    
+    # 方法 2: 本地构建
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    
     container_name: proxyforge
     restart: unless-stopped
     ports:

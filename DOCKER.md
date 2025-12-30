@@ -44,17 +44,21 @@ docker rm proxyforge
 
 ## 📦 使用预构建镜像
 
-### 从 GitHub Container Registry 拉取
+### 从 Docker Hub 拉取 (推荐)
 
 ```bash
 # 拉取最新镜像
-docker pull ghcr.io/YOUR_USERNAME/proxyforge:latest
+docker pull flickermi/proxyforge:latest
 
 # 运行
 docker run -d \
   --name proxyforge \
   -p 8000:8000 \
-  ghcr.io/YOUR_USERNAME/proxyforge:latest
+  -v $(pwd)/logs:/app/logs \
+  flickermi/proxyforge:latest
+
+# 查看日志
+docker logs -f proxyforge
 ```
 
 ---

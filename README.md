@@ -25,6 +25,23 @@
 
 #### 方法 1: Docker 部署 (推荐) 🐳
 
+**使用预构建镜像:**
+
+```bash
+# 从 Docker Hub 拉取并运行
+docker run -d \
+  --name proxyforge \
+  -p 8000:8000 \
+  flickermi/proxyforge:latest
+
+# 或使用 docker-compose
+# 编辑 docker-compose.yml,将 build 改为 image
+# image: flickermi/proxyforge:latest
+docker-compose up -d
+```
+
+**本地构建:**
+
 ```bash
 # 使用 docker-compose
 docker-compose up -d
