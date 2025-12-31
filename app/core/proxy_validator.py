@@ -76,7 +76,17 @@ class ProxyValidator:
         
         # 统计结果
         valid_count = sum(1 for p in validated_proxies if p.is_valid)
-        log.info(f"代理验证完成,有效: {valid_count}/{len(proxies)}")
+        
+        # 统计各来源的有效代理数
+        source_stats = {}
+        for p in validated_proxies:
+            if p.is_valid and p.source:
+                source_stats[p.source] = source_stats.get(p.source, 0) + 1
+        
+        # 格式化来源统计信息
+        source_info = ", ".join([f"{src}: {cnt}" for src, cnt in source_stats.items()]) if source_stats else "无"
+        
+        log.info(f"代理验证完成,有效: {valid_count}/{len(proxies)}, 来源分布: {source_info}")
         
         return validated_proxies
     

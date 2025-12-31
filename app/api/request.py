@@ -27,7 +27,9 @@ async def send_proxy_request(request: RequestModel) -> ApiResponse:
             - json: JSON 数据 (可选)
             - timeout: 超时时间,秒 (可选,默认 30)
             - allow_redirects: 是否允许重定向 (可选,默认 True)
-            - max_retries: 最大重试次数 (可选,默认 3)
+            - max_retries_per_proxy: 单个代理的最大重试次数 (可选,默认 3)
+            - max_proxy_switches: 最大切换代理次数 (可选,默认 5)
+            - retry_on_status_codes: 触发重试的状态码列表 (可选)
     
     Returns:
         响应数据
@@ -55,7 +57,9 @@ async def send_proxy_request(request: RequestModel) -> ApiResponse:
             },
             "json": {
                 "key": "value"
-            }
+            },
+            "max_retries_per_proxy": 2,
+            "max_proxy_switches": 3
         }
         ```
     """

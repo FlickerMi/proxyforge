@@ -22,6 +22,7 @@ class ProxyPool:
         self.pool_size = settings.proxy_pool_size
         self.last_update: Optional[datetime] = None
         self._update_task: Optional[asyncio.Task] = None
+        self._refill_threshold = int(self.pool_size * 0.5)  # 当代理数低于50%时触发补充
     
     async def start(self):
         """启动代理池"""
@@ -50,7 +51,12 @@ class ProxyPool:
         while True:
             try:
                 await asyncio.sleep(self.update_interval)
-                log.info("定时更新代理池")
+                log.info("定时更新代理池: 开始重新验证现有代理")
+                
+                # 先验证现有代理有效性
+                await self.validate_pool()
+                
+                # 再补充新代理
                 await self.update_pool()
             except asyncio.CancelledError:
                 break
@@ -82,6 +88,9 @@ class ProxyPool:
             target = target_count or self.pool_size
             log.info(f"开始更新代理池,目标: {target} 个有效代理")
             
+            # 先清理失效代理
+            self._cleanup_invalid_proxies()
+            
             # 计算需要获取的代理数量
             current_valid = len(self.get_valid_proxies())
             needed = max(target - current_valid, 0)
@@ -89,6 +98,8 @@ class ProxyPool:
             if needed == 0:
                 log.info(f"代理池已满,当前有效代理数: {current_valid}/{target}")
                 return
+            
+            log.info(f"当前有效代理: {current_valid}/{target}, 需要补充: {needed} 个")
             
             # 由于免费代理质量较低,获取更多代理以确保有足够的有效代理
             # 使用可配置的倍数
@@ -139,6 +150,22 @@ class ProxyPool:
             
         except Exception as e:
             log.error(f"更新代理池失败: {e}")
+            
+    async def validate_pool(self):
+        """重新验证池中的所有代理"""
+        proxies = list(self.proxies.values())
+        if not proxies:
+            log.info("代理池为空,跳过验证")
+            return
+            
+        log.info(f"开始重新验证池中 {len(proxies)} 个代理")
+        
+        # 验证所有代理(包括失效的,检查是否恢复)
+        await self.validator.validate_proxies(proxies)
+        
+        # 统计验证后的有效代理数
+        valid_count = len(self.get_valid_proxies())
+        log.info(f"验证完成,当前有效代理数: {valid_count}/{self.pool_size}")
     
     def _cleanup_invalid_proxies(self):
         """清理失效代理"""
@@ -174,6 +201,12 @@ class ProxyPool:
         if not valid_proxies:
             log.warning("代理池中没有可用代理")
             return None
+        
+        # 检查代理数量是否低于阈值,触发后台补充
+        if len(valid_proxies) < self._refill_threshold:
+            log.warning(f"代理数量不足({len(valid_proxies)}/{self.pool_size}),触发后台补充任务")
+            # 创建后台任务补充代理,不阻塞当前请求
+            asyncio.create_task(self.update_pool())
         
         # 按速度排序,选择最快的代理
         sorted_proxies = sorted(valid_proxies, key=lambda p: p.speed or 999)

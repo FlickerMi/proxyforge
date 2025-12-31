@@ -20,7 +20,9 @@ class Settings(BaseSettings):
     
     # 请求配置
     request_timeout: int = 30  # 秒
-    request_max_retries: int = 3
+    request_max_retries: int = 3  # 已弃用,保留向后兼容
+    request_max_retries_per_proxy: int = 3  # 单个代理重试次数
+    request_max_proxy_switches: int = 5  # 最大切换代理次数
     
     # 日志配置
     log_level: str = "INFO"

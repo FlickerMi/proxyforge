@@ -12,16 +12,33 @@ class ProxyFetcher:
     
     # 支持的代理源
     PROXY_SOURCES = [
-        "KuaidailiProxiedSession",
-        "ProxylistProxiedSession",
-        "QiyunipProxiedSession",
-        "IP3366ProxiedSession",
-        "FreeproxylistProxiedSession",
-        "ProxyScrapeProxiedSession",
+        # 'ProxiflyProxiedSession', 
+        # 'FreeproxylistProxiedSession', 
+        'IhuanProxiedSession', 
+        'IP89ProxiedSession', 
+        'IP3366ProxiedSession', 
+        'KuaidailiProxiedSession', 
+        'KxdailiProxiedSession', 
+        # 'ProxydailyProxiedSession', 
+        'ProxydbProxiedSession', 
+        'ProxyhubProxiedSession', 
+        'ProxylistProxiedSession', 
+        'QiyunipProxiedSession', 
+        # 'SpysoneProxiedSession', 
+        'Tomcat1235ProxiedSession', 
+        # 'DatabayProxiedSession', 
+        # 'FineProxyProxiedSession', 
+        'IPLocateProxiedSession', 
+        'JiliuipProxiedSession', 
+        'TheSpeedXProxiedSession', 
+        'GeonodeProxiedSession', 
+        'FreeProxyDBProxiedSession', 
+        'ProxyScrapeProxiedSession'
     ]
     
     def __init__(self):
         self.fetched_proxies: Set[str] = set()
+        self._source_index = 0  # 用于轮换代理源
     
     async def fetch_proxies(self, count: int = 50) -> List[ProxyModel]:
         """
@@ -40,8 +57,22 @@ class ProxyFetcher:
             # 使用线程池执行同步的 pyfreeproxy 调用
             loop = asyncio.get_event_loop()
             
-            # 从多个源获取代理
-            for source in self.PROXY_SOURCES[:5]:  # 使用前5个源
+            # 计算需要使用的代理源数量（最多使用5个源，但会轮换）
+            sources_to_use = min(5, len(self.PROXY_SOURCES))
+            
+            # 使用轮换策略选择代理源
+            selected_sources = []
+            for i in range(sources_to_use):
+                source_idx = (self._source_index + i) % len(self.PROXY_SOURCES)
+                selected_sources.append(self.PROXY_SOURCES[source_idx])
+            
+            # 更新索引，下次从不同位置开始
+            self._source_index = (self._source_index + sources_to_use) % len(self.PROXY_SOURCES)
+            
+            log.info(f"本次使用代理源: {', '.join(selected_sources)}")
+            
+            # 从选中的源获取代理
+            for source in selected_sources:
                 try:
                     source_proxies = await loop.run_in_executor(
                         None,
@@ -102,7 +133,7 @@ class ProxyFetcher:
             # 转换为 ProxyModel
             for proxy_info in proxy_infos:
                 try:
-                    proxy = self._convert_proxy_info(proxy_info)
+                    proxy = self._convert_proxy_info(proxy_info, source)
                     if proxy:
                         proxies.append(proxy)
                 except Exception as e:
@@ -116,12 +147,13 @@ class ProxyFetcher:
         
         return proxies
     
-    def _convert_proxy_info(self, proxy_info: ProxyInfo) -> ProxyModel:
+    def _convert_proxy_info(self, proxy_info: ProxyInfo, source: str) -> ProxyModel:
         """
         将 ProxyInfo 转换为 ProxyModel
         
         Args:
             proxy_info: pyfreeproxy 的 ProxyInfo 对象
+            source: 代理来源
             
         Returns:
             ProxyModel
@@ -148,6 +180,7 @@ class ProxyFetcher:
                 country=proxy_info.country_code,
                 anonymity=proxy_info.anonymity,
                 speed=proxy_info.delay / 1000.0 if proxy_info.delay else None,  # 转换为秒
+                source=source,  # 设置代理来源
             )
             
             return proxy

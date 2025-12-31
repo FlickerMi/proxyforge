@@ -27,6 +27,7 @@ class ProxyModel(BaseModel):
     speed: Optional[float] = None  # 响应时间(秒)
     last_checked: Optional[datetime] = None
     is_valid: bool = True
+    source: Optional[str] = None  # 代理来源
     
     @property
     def proxy_url(self) -> str:
@@ -64,7 +65,9 @@ class RequestModel(BaseModel):
     json: Optional[Dict[str, Any]] = Field(None, description="JSON 数据")
     timeout: Optional[int] = Field(30, description="超时时间(秒)")
     allow_redirects: bool = Field(True, description="是否允许重定向")
-    max_retries: Optional[int] = Field(3, description="最大重试次数")
+    max_retries: Optional[int] = Field(None, description="最大重试次数(已弃用,请使用 max_proxy_switches)")
+    max_retries_per_proxy: Optional[int] = Field(3, description="单个代理的最大重试次数")
+    max_proxy_switches: Optional[int] = Field(5, description="最大切换代理次数")
     retry_on_status_codes: Optional[List[int]] = Field(
         None, 
         description="触发重试的 HTTP 状态码列表,默认为 None (不基于状态码重试),可设置如 [403, 429, 502, 503]"

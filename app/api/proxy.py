@@ -143,3 +143,98 @@ async def update_proxy_pool() -> ApiResponse:
     except Exception as e:
         log.error(f"更新代理池失败: {e}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/test-sources", response_model=ApiResponse, summary="测试所有代理源")
+async def test_proxy_sources() -> ApiResponse:
+    """
+    测试所有配置的代理源,返回每个源能获取到的代理数量
+    
+    Returns:
+        每个代理源及其获取到的代理数量
+        
+    Example Response:
+        {
+            "success": true,
+            "message": "测试完成,共测试 23 个代理源",
+            "data": {
+                "sources": [
+                    {"source": "IhuanProxiedSession", "count": 15, "status": "success"},
+                    {"source": "IP89ProxiedSession", "count": 0, "status": "failed", "error": "连接超时"},
+                    ...
+                ],
+                "total_sources": 23,
+                "successful_sources": 18,
+                "total_proxies": 234
+            }
+        }
+    """
+    try:
+        from app.core.proxy_fetcher import ProxyFetcher
+        import asyncio
+        
+        log.info("开始测试所有代理源...")
+        fetcher = ProxyFetcher()
+        
+        results = []
+        total_proxies = 0
+        successful_sources = 0
+        
+        # 测试每个代理源
+        for source in fetcher.PROXY_SOURCES:
+            try:
+                log.info(f"测试代理源: {source}")
+                
+                # 使用线程池执行同步调用
+                loop = asyncio.get_event_loop()
+                proxies = await loop.run_in_executor(
+                    None,
+                    fetcher._fetch_from_source,
+                    source
+                )
+                
+                count = len(proxies)
+                total_proxies += count
+                
+                if count > 0:
+                    successful_sources += 1
+                    results.append({
+                        "source": source,
+                        "count": count,
+                        "status": "success"
+                    })
+                    log.info(f"✓ {source}: 获取到 {count} 个代理")
+                else:
+                    results.append({
+                        "source": source,
+                        "count": 0,
+                        "status": "no_proxies"
+                    })
+                    log.warning(f"✗ {source}: 未获取到代理")
+                    
+            except Exception as e:
+                results.append({
+                    "source": source,
+                    "count": 0,
+                    "status": "failed",
+                    "error": str(e)
+                })
+                log.error(f"✗ {source}: 测试失败 - {e}")
+        
+        # 按获取数量降序排序
+        results.sort(key=lambda x: x["count"], reverse=True)
+        
+        return ApiResponse(
+            success=True,
+            message=f"测试完成,共测试 {len(fetcher.PROXY_SOURCES)} 个代理源",
+            data={
+                "sources": results,
+                "total_sources": len(fetcher.PROXY_SOURCES),
+                "successful_sources": successful_sources,
+                "total_proxies": total_proxies
+            }
+        )
+        
+    except Exception as e:
+        log.error(f"测试代理源失败: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
