@@ -22,6 +22,7 @@ class ProxyPool:
         self.pool_size = settings.proxy_pool_size
         self.last_update: Optional[datetime] = None
         self._update_task: Optional[asyncio.Task] = None
+        self._refill_task: Optional[asyncio.Task] = None  # 防止重复补充任务
         self._refill_threshold = int(self.pool_size * 0.5)  # 当代理数低于50%时触发补充
     
     async def start(self):
@@ -66,13 +67,16 @@ class ProxyPool:
     async def stop(self):
         """停止代理池"""
         log.info("停止代理池管理器")
-        
-        if self._update_task:
-            self._update_task.cancel()
-            try:
-                await self._update_task
-            except asyncio.CancelledError:
-                pass
+
+        for task in (self._update_task, self._refill_task):
+            if task and not task.done():
+                task.cancel()
+                try:
+                    await task
+                except asyncio.CancelledError:
+                    pass
+        self._update_task = None
+        self._refill_task = None
     
     
     async def update_pool(self, target_count: int = None, max_attempts: int = 3, fetch_multiplier: int = 5):
@@ -202,11 +206,11 @@ class ProxyPool:
             log.warning("代理池中没有可用代理")
             return None
         
-        # 检查代理数量是否低于阈值,触发后台补充
+        # 检查代理数量是否低于阈值,触发后台补充（防止重复创建任务）
         if len(valid_proxies) < self._refill_threshold:
-            log.warning(f"代理数量不足({len(valid_proxies)}/{self.pool_size}),触发后台补充任务")
-            # 创建后台任务补充代理,不阻塞当前请求
-            asyncio.create_task(self.update_pool())
+            if self._refill_task is None or self._refill_task.done():
+                log.warning(f"代理数量不足({len(valid_proxies)}/{self.pool_size}),触发后台补充任务")
+                self._refill_task = asyncio.create_task(self.update_pool())
         
         # 按速度排序,选择最快的代理
         sorted_proxies = sorted(valid_proxies, key=lambda p: p.speed or 999)

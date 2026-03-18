@@ -1,7 +1,7 @@
 """代理获取模块 - 集成 pyfreeproxy"""
 
 import asyncio
-from typing import List, Set
+from typing import List
 from freeproxy.modules import BuildProxiedSession, ProxyInfo
 from app.models import ProxyModel, ProxyProtocol
 from app.utils import log
@@ -37,7 +37,6 @@ class ProxyFetcher:
     ]
     
     def __init__(self):
-        self.fetched_proxies: Set[str] = set()
         self._source_index = 0  # 用于轮换代理源
     
     async def fetch_proxies(self, count: int = 50) -> List[ProxyModel]:
@@ -117,19 +116,20 @@ class ProxyFetcher:
         """
         proxies = []
         
+        session = None
         try:
             log.info(f"从 {source} 获取代理...")
-            
+
             # 创建代理会话
             session = BuildProxiedSession({
                 "max_pages": 1,  # 每个源只抓取1页
                 "type": source,
                 "disable_print": True,  # 禁用打印
             })
-            
+
             # 获取代理列表
             proxy_infos: List[ProxyInfo] = session.refreshproxies()
-            
+
             # 转换为 ProxyModel
             for proxy_info in proxy_infos:
                 try:
@@ -139,11 +139,18 @@ class ProxyFetcher:
                 except Exception as e:
                     log.debug(f"转换代理失败: {e}")
                     continue
-            
+
             log.info(f"从 {source} 获取到 {len(proxies)} 个代理")
-            
+
         except Exception as e:
             log.error(f"从 {source} 获取代理异常: {e}")
+        finally:
+            # 确保会话资源被释放
+            if session is not None:
+                try:
+                    session.close()
+                except Exception:
+                    pass
         
         return proxies
     
