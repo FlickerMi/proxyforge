@@ -201,16 +201,16 @@ class ProxyPool:
             代理模型
         """
         valid_proxies = self.get_valid_proxies()
-        
-        if not valid_proxies:
-            log.warning("代理池中没有可用代理")
-            return None
-        
-        # 检查代理数量是否低于阈值,触发后台补充（防止重复创建任务）
+
+        # 检查代理数量是否低于阈值（含空池），触发后台补充（防止重复创建任务）
         if len(valid_proxies) < self._refill_threshold:
             if self._refill_task is None or self._refill_task.done():
                 log.warning(f"代理数量不足({len(valid_proxies)}/{self.pool_size}),触发后台补充任务")
                 self._refill_task = asyncio.create_task(self.update_pool())
+
+        if not valid_proxies:
+            log.warning("代理池中没有可用代理")
+            return None
         
         # 按速度排序,选择最快的代理
         sorted_proxies = sorted(valid_proxies, key=lambda p: p.speed or 999)
